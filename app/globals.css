@@ -3,109 +3,355 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================================
+   NAIL BUDDY DESIGN TOKENS
+   Reference: a polish wall — creamy neutral shelving, saturated lacquer drops,
+   a glossy specular highlight.
+
+   Every accent is a TRIAD. Use the right member or you will ship a contrast bug:
+     --accent-X          vivid fill.  Put --on-accent-X on top of it. Never text on cream.
+     --accent-X-strong   darkened.    Safe as TEXT / ICON / BORDER on light surfaces (>=4.5:1).
+     --on-accent-X       the verified foreground for the vivid fill.
+
+   All ratios below were computed against #FBF7F4 (light base) or the fill,
+   not estimated. See /styleguide for live values.
+   ========================================================================= */
+
 :root {
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.55 0.18 340);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.95 0.03 340);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.55 0.18 340);
-  --success: oklch(0.62 0.17 145);
-  --success-foreground: oklch(0.985 0 0);
-  --warning: oklch(0.75 0.17 75);
-  --warning-foreground: oklch(0.145 0 0);
+  /* --- surfaces ------------------------------------------------------- */
+  --surface-base: oklch(0.9784 0.0059 59.65); /* #FBF7F4 warm porcelain */
+  --surface-raised: oklch(1 0 0); /* #FFFFFF cards */
+  --surface-sunken: oklch(0.9452 0.0102 48.62); /* #F3EBE7 wells, tracks */
+
+  /* --- ink ------------------------------------------------------------ */
+  --ink: oklch(0.2476 0.0432 319.44); /* #2A1A2E  15.33:1 on base */
+  --ink-muted: oklch(0.4914 0.0377 321.23); /* #6B5A6E   5.95:1 on base */
+
+  /* --- accents: vivid fills ------------------------------------------- */
+  --accent-coral: oklch(0.6785 0.2131 14.72); /* #FF4D6D */
+  --accent-plum: oklch(0.3111 0.0797 340.12); /* #4A1E3D */
+  --accent-lavender: oklch(0.7446 0.1108 300.05); /* #B79CE8 */
+  --accent-rosegold: oklch(0.7798 0.0699 35.52); /* #E0A899 */
+  --accent-success: oklch(0.6573 0.1258 163.73); /* #2FA97C */
+  --accent-warning: oklch(0.731 0.1505 64.45); /* #E8912B */
+  --accent-danger: oklch(0.5977 0.1966 20.32); /* #DC3B4B */
+
+  /* --- accents: text/border-safe on light surfaces (>=4.5:1 on base) --- */
+  --accent-coral-strong: oklch(0.575 0.1788 14.43); /* #CC3D57  4.51:1 */
+  --accent-plum-strong: oklch(0.3111 0.0797 340.12); /* #4A1E3D 12.76:1 */
+  --accent-lavender-strong: oklch(0.5593 0.0816 300.58); /* #7C699D  4.52:1 */
+  --accent-rosegold-strong: oklch(0.5569 0.0473 34.87); /* #8D6A61  4.51:1 */
+  --accent-success-strong: oklch(0.5405 0.1013 164.23); /* #24815F  4.50:1 */
+  --accent-warning-strong: oklch(0.5586 0.1129 64.43); /* #A1641E  4.52:1 */
+  --accent-danger-strong: oklch(0.5755 0.1888 20.34); /* #D13847  4.51:1 */
+
+  /* --- verified foregrounds for each vivid fill ------------------------ */
+  /* white-on-coral is only 3.21:1 and FAILS. Ink-on-coral is 5.08:1.
+     This is why the primary button carries a plum label, not a white one. */
+  --on-accent-coral: oklch(0.2476 0.0432 319.44); /* ink      5.08:1 */
+  --on-accent-plum: oklch(1 0 0); /* white   13.60:1 */
+  --on-accent-lavender: oklch(0.2476 0.0432 319.44); /* ink      6.95:1 */
+  --on-accent-rosegold: oklch(0.2476 0.0432 319.44); /* ink      7.96:1 */
+  --on-accent-success: oklch(0.2476 0.0432 319.44); /* ink      5.51:1 */
+  --on-accent-warning: oklch(0.2476 0.0432 319.44); /* ink      6.62:1 */
+  /* danger's vivid fill only reaches 4.40:1 with white, so destructive
+     buttons fill with -strong (4.81:1 with white) instead. */
+  --on-accent-danger: oklch(1 0 0);
+
+  /* Foregrounds for the two `-strong` values that are used as BUTTON FILLS.
+     These must flip with the theme: on light the -strong fill is dark and
+     takes white; on dark it lifts to a pale tint and takes dark ink. */
+  --on-accent-danger-strong: oklch(1 0 0); /* white  4.81:1 */
+  --on-accent-success-strong: oklch(1 0 0); /* white  4.79:1 */
+
+  /* --- lines ---------------------------------------------------------- */
+  --hairline: oklch(0.2476 0.0432 319.44 / 12%);
+  --hairline-strong: oklch(0.2476 0.0432 319.44 / 22%);
+
+  /* --- shadows: tinted plum, never black ------------------------------- */
+  --shadow-sm: 0 1px 2px rgb(74 30 61 / 0.06);
+  --shadow-md: 0 2px 4px rgb(74 30 61 / 0.05), 0 8px 20px rgb(74 30 61 / 0.07);
+  --shadow-lg: 0 4px 8px rgb(74 30 61 / 0.06), 0 20px 48px rgb(74 30 61 / 0.1);
+  --shadow-glow: 0 0 0 4px rgb(255 77 109 / 0.14);
+
+  /* --- radii: one family ----------------------------------------------- */
+  --radius-card: 1.5rem; /* 24 */
+  --radius-control: 1rem; /* 16 */
+  --radius-media: 1.25rem; /* 20 */
+  --radius-pill: 999px;
+
+  /* --- motion ---------------------------------------------------------- */
+  --duration-instant: 100ms;
+  --duration-fast: 160ms;
+  --duration-base: 240ms;
+  --duration-slow: 360ms;
+  --duration-entrance: 480ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.65 0.19 340);
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.3 0.05 340);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 18%);
-  --ring: oklch(0.65 0.19 340);
-  --success: oklch(0.7 0.17 145);
-  --success-foreground: oklch(0.145 0 0);
-  --warning: oklch(0.8 0.17 75);
-  --warning-foreground: oklch(0.145 0 0);
+  /* Not an inversion — a plum-black room, not a gray one. */
+  --surface-base: oklch(0.1858 0.0194 322.16); /* #171018 */
+  --surface-raised: oklch(0.2279 0.0302 316.11); /* #221826 */
+  --surface-sunken: oklch(0.1549 0.0167 316.19); /* #0F0A11 */
+
+  --ink: oklch(0.959 0.01 335.48); /* #F6EFF4 16.53:1 */
+  --ink-muted: oklch(0.7368 0.0396 321.84); /* #B6A2B9  7.88:1 */
+
+  /* Lifted + slightly desaturated so they read on plum-black.
+     All verified >=6.2:1 on both base and raised. */
+  --accent-coral: oklch(0.7169 0.1807 12.55); /* #FF6B84  6.84:1 */
+  --accent-plum: oklch(0.4813 0.0845 341.17); /* #7E4A6C  surface only */
+  --accent-lavender: oklch(0.8063 0.0877 300.97); /* #C9B3F0  9.96:1 */
+  --accent-rosegold: oklch(0.841 0.0517 37.89); /* #EAC0B3 11.29:1 */
+  --accent-success: oklch(0.7599 0.1312 164.3); /* #4FCB9B  9.21:1 */
+  --accent-warning: oklch(0.8058 0.1329 71.08); /* #F5B056  9.99:1 */
+  --accent-danger: oklch(0.7146 0.1804 16.78); /* #FF6B7A  6.80:1 */
+
+  /* On dark the vivid accents already pass as text, so -strong collapses
+     onto them. Keeping the names means components never branch on theme. */
+  --accent-coral-strong: oklch(0.7169 0.1807 12.55);
+  --accent-plum-strong: oklch(0.8063 0.0877 300.97);
+  --accent-lavender-strong: oklch(0.8063 0.0877 300.97);
+  --accent-rosegold-strong: oklch(0.841 0.0517 37.89);
+  --accent-success-strong: oklch(0.7599 0.1312 164.3);
+  --accent-warning-strong: oklch(0.8058 0.1329 71.08);
+  --accent-danger-strong: oklch(0.7146 0.1804 16.78);
+
+  /* Lifted accents are light, so dark ink sits on top of all of them. */
+  --on-accent-coral: oklch(0.1858 0.0194 322.16);
+  --on-accent-plum: oklch(0.959 0.01 335.48);
+  --on-accent-lavender: oklch(0.1858 0.0194 322.16);
+  --on-accent-rosegold: oklch(0.1858 0.0194 322.16);
+  --on-accent-success: oklch(0.1858 0.0194 322.16);
+  --on-accent-warning: oklch(0.1858 0.0194 322.16);
+  --on-accent-danger: oklch(0.1858 0.0194 322.16);
+  /* -strong lifts to a pale tint on dark, so the label flips to dark ink:
+     6.80:1 on danger-strong, 9.21:1 on success-strong. */
+  --on-accent-danger-strong: oklch(0.1858 0.0194 322.16);
+  --on-accent-success-strong: oklch(0.1858 0.0194 322.16);
+
+  --hairline: oklch(1 0 0 / 8%);
+  --hairline-strong: oklch(1 0 0 / 16%);
+
+  /* Tint dark shadows toward black — plum tint on a dark surface just muddies. */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 2px 4px rgb(0 0 0 / 0.3), 0 8px 20px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.35), 0 20px 48px rgb(0 0 0 / 0.55);
+  --shadow-glow: 0 0 0 4px rgb(255 107 132 / 0.22);
 }
 
+/* ============================================================================
+   TAILWIND THEME REGISTRATION (v4 — CSS-first, no tailwind.config.ts exists)
+   ========================================================================= */
+
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* surfaces + ink */
+  --color-surface-base: var(--surface-base);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+
+  /* accents — vivid */
+  --color-coral: var(--accent-coral);
+  --color-plum: var(--accent-plum);
+  --color-lavender: var(--accent-lavender);
+  --color-rosegold: var(--accent-rosegold);
+  --color-success: var(--accent-success);
+  --color-warning: var(--accent-warning);
+  --color-danger: var(--accent-danger);
+
+  /* accents — text/border-safe */
+  --color-coral-strong: var(--accent-coral-strong);
+  --color-plum-strong: var(--accent-plum-strong);
+  --color-lavender-strong: var(--accent-lavender-strong);
+  --color-rosegold-strong: var(--accent-rosegold-strong);
+  --color-success-strong: var(--accent-success-strong);
+  --color-warning-strong: var(--accent-warning-strong);
+  --color-danger-strong: var(--accent-danger-strong);
+
+  /* accents — verified foregrounds */
+  --color-on-coral: var(--on-accent-coral);
+  --color-on-plum: var(--on-accent-plum);
+  --color-on-lavender: var(--on-accent-lavender);
+  --color-on-rosegold: var(--on-accent-rosegold);
+  --color-on-success: var(--on-accent-success);
+  --color-on-warning: var(--on-accent-warning);
+  --color-on-danger: var(--on-accent-danger);
+  --color-on-danger-strong: var(--on-accent-danger-strong);
+  --color-on-success-strong: var(--on-accent-success-strong);
+
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+
+  /* --- shadcn/ui compatibility layer ---------------------------------
+     The 12 primitives in components/ui/* and any future shadcn component
+     speak this vocabulary. Aliasing keeps them working and on-palette. */
+  --color-background: var(--surface-base);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface-raised);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--accent-coral);
+  --color-primary-foreground: var(--on-accent-coral);
+  --color-secondary: var(--surface-sunken);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--surface-sunken);
+  --color-muted-foreground: var(--ink-muted);
+  --color-accent: var(--surface-sunken);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--accent-danger-strong);
+  --color-border: var(--hairline);
+  --color-input: var(--hairline-strong);
+  --color-ring: var(--accent-coral-strong);
+
+  /* --- radii ---------------------------------------------------------- */
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+  --radius-media: var(--radius-media);
+  --radius-pill: var(--radius-pill);
+  /* shadcn's scale, remapped onto the control radius */
+  --radius-sm: calc(var(--radius-control) - 6px);
+  --radius-md: calc(var(--radius-control) - 4px);
+  --radius-lg: var(--radius-control);
+  --radius-xl: var(--radius-card);
+
+  /* --- shadows -------------------------------------------------------- */
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-glow: var(--shadow-glow);
+
+  /* --- type ----------------------------------------------------------- */
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
+
+  --text-display: 2.75rem; /* 44 */
+  --text-display--line-height: 3rem; /* 48 */
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 600;
+
+  --text-h1: 2rem; /* 32 */
+  --text-h1--line-height: 2.5rem; /* 40 */
+  --text-h1--letter-spacing: -0.015em;
+  --text-h1--font-weight: 600;
+
+  --text-h2: 1.5rem; /* 24 */
+  --text-h2--line-height: 2rem; /* 32 */
+  --text-h2--font-weight: 600;
+
+  --text-body-lg: 1.1875rem; /* 19 — default on /request */
+  --text-body-lg--line-height: 1.75rem; /* 28 */
+
+  --text-body: 1rem; /* 16 — default on /tech, /manager */
+  --text-body--line-height: 1.5rem; /* 24 */
+
+  --text-label: 0.875rem; /* 14 */
+  --text-label--line-height: 1.25rem; /* 20 */
+  --text-label--letter-spacing: 0.04em;
+  --text-label--font-weight: 600;
+
+  --text-caption: 0.8125rem; /* 13 */
+  --text-caption--line-height: 1.125rem; /* 18 */
+
+  /* --- motion --------------------------------------------------------- */
+  --ease-out: var(--ease-out);
 }
+
+/* ============================================================================
+   BASE
+   ========================================================================= */
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--hairline);
   }
+
   html {
-    @apply h-full;
+    height: 100%;
+    /* Larger-text toggle (§4). Persisted; set by PreferencesProvider. */
+    font-size: 100%;
   }
+
+  html[data-text-scale="lg"] {
+    font-size: 112%;
+  }
+
   body {
-    @apply bg-background text-foreground h-full;
+    height: 100%;
+    background: var(--surface-base);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+  }
+
+  /* Digits must not jitter while a timer counts. */
+  time,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Never remove the outline — recolor it. 3px, offset 2px per §11. */
+  :focus-visible {
+    outline: 3px solid var(--accent-plum-strong);
+    outline-offset: 2px;
+  }
+  .dark :focus-visible {
+    outline-color: var(--accent-lavender);
   }
 }
 
-/* Kiosk mode: prevent accidental text selection / callouts on tablets */
-.kiosk {
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
+/* ============================================================================
+   KIOSK HARDENING — scoped to /request only, never global
+   ========================================================================= */
+
+@layer components {
+  .kiosk {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation; /* kills double-tap zoom */
+    overscroll-behavior: none; /* kills pull-to-refresh */
+  }
+
+  /* The customer still needs to type in the notes field. */
+  .kiosk input,
+  .kiosk textarea,
+  .kiosk [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 }
 
-.kiosk input,
-.kiosk textarea {
-  -webkit-user-select: text;
-  user-select: text;
+/* ============================================================================
+   REDUCED MOTION
+   Framer Motion is handled once at the root via MotionConfig (see
+   components/providers/motion-provider.tsx). This block covers plain CSS
+   transitions and any third-party animation we don't control.
+   ========================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+    transition-property: opacity !important;
+    scroll-behavior: auto !important;
+  }
 }

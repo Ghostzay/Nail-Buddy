@@ -4,31 +4,50 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Tinted background + `-strong` text. The vivid accents fail as text on light
+ * surfaces (lavender is 2.21:1 on cream), so the text always comes from the
+ * `-strong` triad member and the vivid one is only ever a low-alpha wash.
+ *
+ * Badges carry meaning, so callers must supply an icon or text alongside —
+ * never color alone (§11).
+ */
 const badgeVariants = cva(
-  "inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 gap-1 [&>svg]:size-3 transition-colors",
+  [
+    "inline-flex w-fit shrink-0 items-center justify-center gap-1.5",
+    "rounded-pill px-3 py-1",
+    "text-label uppercase",
+    "[&>svg]:size-3.5 [&>svg]:shrink-0",
+  ].join(" "),
   {
     variants: {
       variant: {
-        default:
-          "border-transparent bg-primary text-primary-foreground",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground",
-        destructive:
-          "border-transparent bg-destructive text-white",
-        outline: "text-foreground",
-        success: "border-transparent bg-success text-success-foreground",
-        warning: "border-transparent bg-warning text-warning-foreground",
+        neutral: "bg-surface-sunken text-ink-muted",
+        coral: "bg-coral/14 text-coral-strong",
+        plum: "bg-plum/12 text-plum-strong",
+        lavender: "bg-lavender/20 text-lavender-strong",
+        rosegold: "bg-rosegold/22 text-rosegold-strong",
+        success: "bg-success/16 text-success-strong",
+        warning: "bg-warning/18 text-warning-strong",
+        danger: "bg-danger/14 text-danger-strong",
+        /* Solid fills for high-emphasis status */
+        "solid-coral": "bg-coral text-on-coral",
+        "solid-plum": "bg-plum text-on-plum",
+        outline: "border border-hairline-strong text-ink",
+      },
+      size: {
+        sm: "px-2 py-0.5 text-caption normal-case tracking-normal",
+        md: "",
       },
     },
-    defaultVariants: {
-      variant: "default",
-    },
+    defaultVariants: { variant: "neutral", size: "md" },
   }
 );
 
 function Badge({
   className,
   variant,
+  size,
   asChild = false,
   ...props
 }: React.ComponentProps<"span"> &
@@ -38,7 +57,7 @@ function Badge({
   return (
     <Comp
       data-slot="badge"
-      className={cn(badgeVariants({ variant }), className)}
+      className={cn(badgeVariants({ variant, size }), className)}
       {...props}
     />
   );

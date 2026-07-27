@@ -95,10 +95,10 @@ export function JobCard({ job, onUpdateStatus, onTranslated }: JobCardProps) {
               job.status === "pending"
                 ? "warning"
                 : job.status === "accepted"
-                  ? "default"
+                  ? "coral"
                   : job.status === "completed"
                     ? "success"
-                    : "destructive"
+                    : "danger"
             }
           >
             {job.status}
@@ -107,12 +107,12 @@ export function JobCard({ job, onUpdateStatus, onTranslated }: JobCardProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-1.5">
-          <Badge variant="secondary">{optionLabel(SHAPE_OPTIONS, job.shape)}</Badge>
-          <Badge variant="secondary">{optionLabel(LENGTH_OPTIONS, job.length)}</Badge>
-          <Badge variant="secondary">
+          <Badge variant="neutral">{optionLabel(SHAPE_OPTIONS, job.shape)}</Badge>
+          <Badge variant="neutral">{optionLabel(LENGTH_OPTIONS, job.length)}</Badge>
+          <Badge variant="neutral">
             {optionLabel(COLOR_FAMILY_OPTIONS, job.color_family)}
           </Badge>
-          <Badge variant="secondary">
+          <Badge variant="neutral">
             {optionLabel(DESIGN_TYPE_OPTIONS, job.design_type)}
           </Badge>
         </div>

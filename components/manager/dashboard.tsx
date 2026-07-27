@@ -108,10 +108,10 @@ export function ManagerDashboard({ jobs, customers }: DashboardProps) {
                           job.status === "pending"
                             ? "warning"
                             : job.status === "accepted"
-                              ? "default"
+                              ? "coral"
                               : job.status === "completed"
                                 ? "success"
-                                : "destructive"
+                                : "danger"
                         }
                       >
                         {job.status}
