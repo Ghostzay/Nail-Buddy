@@ -8,6 +8,7 @@ import {
   themeInitScript,
 } from "@/components/providers/preferences-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { I18nProvider } from "@/lib/i18n";
 
 /**
  * Both faces were verified against the Google Fonts CSS API to ship the
@@ -60,10 +61,12 @@ export default function RootLayout({
       </head>
       <body className="flex min-h-full flex-col">
         <PreferencesProvider>
-          <MotionProvider>
-            {children}
-            <Toaster position="top-center" richColors />
-          </MotionProvider>
+          <I18nProvider>
+            <MotionProvider>
+              {children}
+              <Toaster position="top-center" richColors />
+            </MotionProvider>
+          </I18nProvider>
         </PreferencesProvider>
       </body>
     </html>

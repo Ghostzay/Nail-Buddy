@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { MotionDemo } from "@/components/styleguide/motion-demo";
+import { SalonGallery } from "@/components/styleguide/salon-gallery";
 import { StyleguideControls } from "@/components/styleguide/styleguide-controls";
 import { Swatch } from "@/components/styleguide/swatch";
 import { Badge } from "@/components/ui/badge";
@@ -472,10 +473,18 @@ export default function StyleguidePage() {
           </div>
         </Section>
 
+        {/* ---------------------------------------------------------------- */}
+        <Section
+          id="salon"
+          title="Salon components"
+          blurb="The Phase 2 library. These are live and interactive — change the nail preview, break the service rules, tap a completed progress dot. Switching language at the bottom re-renders every string on this page, which is the check that nothing is hardcoded."
+        >
+          <SalonGallery />
+        </Section>
+
         <footer className="border-hairline text-caption text-ink-muted border-t pt-6">
-          Phase 1 contract. Salon components (ChoiceCard, SwatchCard, PhoneKeypad,
-          LiveNailPreview, JobCard, …) land in Phase 2 and get their own sections
-          here.
+          Phase 2 contract. Pages (/request, /tech, /manager) are assembled from
+          these in Phases 3–5.
         </footer>
       </main>
     </div>
