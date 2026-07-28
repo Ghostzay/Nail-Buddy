@@ -1,56 +1,55 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 
+import { JobCard, type QueueJob } from "@/components/salon/job-card";
+import { EmptyState } from "@/components/salon/states";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useT } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
-import type { Job, JobWithCustomer } from "@/lib/types";
-import { JobCard } from "@/components/tech/job-card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
-interface TechQueueProps {
-  initialJobs: JobWithCustomer[];
-}
+type Action = "accept" | "decline" | "start" | "complete";
 
-export function TechQueue({ initialJobs }: TechQueueProps) {
-  const [jobs, setJobs] = useState<JobWithCustomer[]>(initialJobs);
+const POLL_MS = 10_000;
+
+export function TechQueue({ initialJobs }: { initialJobs: QueueJob[] }) {
+  const t = useT();
+  const [jobs, setJobs] = useState<QueueJob[]>(initialJobs);
   const [connected, setConnected] = useState(false);
+  const [busy, setBusy] = useState<Record<string, Action | null>>({});
+  const mounted = useRef(true);
 
+  useEffect(() => () => { mounted.current = false; }, []);
+
+  // ---- refetch (also the polling fallback) --------------------------------
+  const refetch = useCallback(async () => {
+    try {
+      const res = await fetch("/api/queue", { cache: "no-store" });
+      if (!res.ok) return;
+      const body = await res.json();
+      if (mounted.current) setJobs(body.jobs as QueueJob[]);
+    } catch {
+      /* transient — the next tick tries again */
+    }
+  }, []);
+
+  // ---- realtime -----------------------------------------------------------
   useEffect(() => {
     const supabase = createClient();
-
     const channel = supabase
       .channel("tech-jobs")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "jobs" },
-        async (payload) => {
-          if (payload.eventType === "INSERT") {
-            const newJob = payload.new as Job;
-            const { data: customer } = await supabase
-              .from("customers")
-              .select("*")
-              .eq("id", newJob.customer_id)
-              .single();
-            setJobs((prev) => [{ ...newJob, customer: customer ?? null }, ...prev]);
-            toast("New request received", {
-              description: customer?.name ?? "Walk-in customer",
-            });
-          } else if (payload.eventType === "UPDATE") {
-            const updated = payload.new as Job;
-            setJobs((prev) =>
-              prev.map((j) => (j.id === updated.id ? { ...j, ...updated } : j))
-            );
-          } else if (payload.eventType === "DELETE") {
-            const deleted = payload.old as Job;
-            setJobs((prev) => prev.filter((j) => j.id !== deleted.id));
-          }
+        () => {
+          // Refetch rather than patching from the payload: the card needs
+          // joined customer data that the change event doesn't carry, and a
+          // single small query is cheaper than getting the merge subtly wrong.
+          refetch();
         }
       )
       .subscribe((status) => {
@@ -60,104 +59,170 @@ export function TechQueue({ initialJobs }: TechQueueProps) {
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [refetch]);
+
+  // A silently stale queue is the worst failure mode on this screen, so when
+  // realtime is down we poll and say so rather than showing confident old data.
+  useEffect(() => {
+    if (connected) return;
+    const id = setInterval(refetch, POLL_MS);
+    return () => clearInterval(id);
+  }, [connected, refetch]);
+
+  // ---- actions ------------------------------------------------------------
+  const act = useCallback(
+    async (job: QueueJob, action: Action) => {
+      setBusy((b) => ({ ...b, [job.id]: action }));
+      const previous = jobs;
+
+      try {
+        const res = await fetch(`/api/jobs/${job.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+
+        if (res.status === 409) {
+          // Expected race, not an error. Drop the card and say who won.
+          toast(t("queue.claimedByOther"));
+          setJobs((js) => js.filter((j) => j.id !== job.id));
+          return;
+        }
+
+        if (!res.ok) throw new Error(await res.text());
+
+        const { job: updated } = await res.json();
+        setJobs((js) =>
+          js.map((j) =>
+            j.id === job.id ? { ...j, status: updated.status ?? j.status } : j
+          )
+        );
+
+        // Undo instead of a confirm dialog — dialogs are slow with wet hands,
+        // and every one of these actions is cheaply reversible.
+        if (action === "decline" || action === "complete") {
+          toast(action === "decline" ? t("queue.decline") : t("queue.complete"), {
+            action: {
+              label: t("queue.undo"),
+              onClick: async () => {
+                await fetch(`/api/jobs/${job.id}`, {
+                  method: "PATCH",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "reopen" }),
+                });
+                refetch();
+              },
+            },
+          });
+        }
+        refetch();
+      } catch {
+        toast.error(t("error.generic"));
+        setJobs(previous);
+      } finally {
+        if (mounted.current) setBusy((b) => ({ ...b, [job.id]: null }));
+      }
+    },
+    [jobs, refetch, t]
+  );
+
+  const translate = useCallback(async (job: QueueJob) => {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jobId: job.id }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error);
+    setJobs((js) =>
+      js.map((j) => (j.id === job.id ? { ...j, notesVi: body.translation } : j))
+    );
   }, []);
 
-  async function updateStatus(
-    id: string,
-    status: "accepted" | "declined" | "completed"
-  ) {
-    const res = await fetch(`/api/jobs/${id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    if (!res.ok) {
-      toast.error("Couldn't update the job. Try again.");
-      return;
-    }
-    setJobs((prev) =>
-      status === "completed" || status === "declined"
-        ? prev.filter((j) => j.id !== id)
-        : prev.map((j) => (j.id === id ? { ...j, status } : j))
+  const waiting = useMemo(() => jobs.filter((j) => j.status === "open"), [jobs]);
+  const mine = useMemo(
+    () => jobs.filter((j) => j.status === "claimed" || j.status === "in_progress"),
+    [jobs]
+  );
+  const done = useMemo(() => jobs.filter((j) => j.status === "complete"), [jobs]);
+
+  const render = (list: QueueJob[], emptyKey: "queue.empty" | "queue.emptyMine") => {
+    if (!list.length) return <EmptyState title={t(emptyKey)} />;
+    return (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <AnimatePresence mode="popLayout">
+          {list.map((job) => (
+            <JobCard
+              key={job.id}
+              job={job}
+              busy={busy[job.id] ?? null}
+              onAccept={() => act(job, "accept")}
+              onDecline={() => act(job, "decline")}
+              onStart={() => act(job, "start")}
+              onComplete={() => act(job, "complete")}
+              onTranslate={() => translate(job)}
+            />
+          ))}
+        </AnimatePresence>
+      </div>
     );
-  }
-
-  function handleTranslated(id: string, notesVi: string) {
-    setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, notes_vi: notesVi } : j)));
-  }
-
-  const pending = useMemo(
-    () => jobs.filter((j) => j.status === "pending").sort(byCreatedAtAsc),
-    [jobs]
-  );
-  const inProgress = useMemo(
-    () => jobs.filter((j) => j.status === "accepted").sort(byCreatedAtAsc),
-    [jobs]
-  );
+  };
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Job Queue</h1>
+    <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+      <a
+        href="#queue"
+        className="sr-only focus:not-sr-only focus:mb-2 focus:inline-block"
+      >
+        Skip to queue
+      </a>
+
+      {!connected && (
+        <div
+          role="status"
+          className="border-warning-strong/40 bg-warning/14 text-warning-strong mb-4 flex items-center gap-2 rounded-control border px-3 py-2 text-body"
+        >
+          <WifiOff className="size-4" aria-hidden />
+          {t("queue.reconnecting")}
+        </div>
+      )}
+
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h1 className="text-h1 font-display text-ink">{t("queue.title")}</h1>
         <span
-          className={`flex items-center gap-1.5 text-xs font-medium ${
-            connected ? "text-success" : "text-muted-foreground"
-          }`}
+          className={cn(
+            "inline-flex items-center gap-1.5 text-caption",
+            connected ? "text-success-strong" : "text-ink-muted"
+          )}
         >
           {connected ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />}
-          {connected ? "Live" : "Connecting…"}
+          {connected ? t("queue.live") : t("queue.reconnecting")}
         </span>
       </div>
 
-      <Tabs defaultValue="pending">
+      <Tabs defaultValue="waiting" id="queue">
         <TabsList>
-          <TabsTrigger value="pending">Pending ({pending.length})</TabsTrigger>
-          <TabsTrigger value="in-progress">In Progress ({inProgress.length})</TabsTrigger>
+          <TabsTrigger value="waiting">
+            {t("queue.waiting")} ({waiting.length})
+          </TabsTrigger>
+          <TabsTrigger value="mine">
+            {t("queue.mine")} ({mine.length})
+          </TabsTrigger>
+          <TabsTrigger value="done">
+            {t("queue.doneToday")} ({done.length})
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="pending" className="mt-4">
-          <JobGrid jobs={pending} onUpdateStatus={updateStatus} onTranslated={handleTranslated} empty="No pending requests." />
+
+        <TabsContent value="waiting" className="mt-4">
+          {render(waiting, "queue.empty")}
         </TabsContent>
-        <TabsContent value="in-progress" className="mt-4">
-          <JobGrid jobs={inProgress} onUpdateStatus={updateStatus} onTranslated={handleTranslated} empty="Nothing in progress." />
+        <TabsContent value="mine" className="mt-4">
+          {render(mine, "queue.emptyMine")}
+        </TabsContent>
+        <TabsContent value="done" className="mt-4">
+          {render(done, "queue.empty")}
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-function byCreatedAtAsc(a: JobWithCustomer, b: JobWithCustomer) {
-  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-}
-
-function JobGrid({
-  jobs,
-  onUpdateStatus,
-  onTranslated,
-  empty,
-}: {
-  jobs: JobWithCustomer[];
-  onUpdateStatus: (id: string, status: "accepted" | "declined" | "completed") => Promise<void>;
-  onTranslated: (id: string, notesVi: string) => void;
-  empty: string;
-}) {
-  if (jobs.length === 0) {
-    return (
-      <p className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
-        {empty}
-      </p>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {jobs.map((job) => (
-        <JobCard
-          key={job.id}
-          job={job}
-          onUpdateStatus={onUpdateStatus}
-          onTranslated={onTranslated}
-        />
-      ))}
     </div>
   );
 }

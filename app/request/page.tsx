@@ -6,6 +6,7 @@ import { FLAGS } from "@/lib/flags";
 import { estimateWait } from "@/lib/pricing";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import type { JobStatus } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Check in | Nail Buddy",
@@ -48,7 +49,7 @@ export default async function RequestPage() {
     const { count } = await supabase
       .from("jobs")
       .select("id", { count: "exact", head: true })
-      .in("status", FLAGS.jobLifecycle ? ["open", "claimed"] : ["pending", "accepted"]);
+      .in("status", (FLAGS.jobLifecycle ? ["open", "claimed"] : ["pending", "accepted"]) as JobStatus[]);
     queueAhead = count ?? 0;
   } catch {
     queueAhead = 0;

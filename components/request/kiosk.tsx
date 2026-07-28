@@ -43,7 +43,7 @@ import { useBackGuard, useKioskSession } from "@/hooks/use-kiosk-session";
 import { useT, type MessageKey } from "@/lib/i18n";
 import { buildJobPayload, buildNotes, maxColors } from "@/lib/job-adapter";
 import { canAdvance, computeSteps, type FlowStep, type Gate } from "@/lib/kiosk/flow";
-import { estimate } from "@/lib/pricing";
+import { estimate, formatMoney } from "@/lib/pricing";
 
 type Phase = Gate | "flow" | "success";
 
@@ -145,14 +145,19 @@ export function Kiosk({
         body: JSON.stringify(buildJobPayload(sub, notes)),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || t("send.failed"));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
 
       setQueuePosition(body.queuePosition ?? queueAhead + 1);
       toast.success(t("send.sent"));
       setPhase("success");
     } catch (err) {
+      // A customer standing at a tablet must never be shown a raw exception —
+      // "TypeError: fetch failed" tells them nothing and looks broken. They get
+      // the actionable sentence; the technical detail goes to the console for
+      // whoever is debugging the kiosk.
+      console.error("Kiosk submit failed:", err);
       // The draft is intentionally left intact so "tap Send again" is true.
-      setError(err instanceof Error ? err.message : t("send.failed"));
+      setError(t("send.failed"));
     } finally {
       setSubmitting(false);
     }
@@ -311,7 +316,7 @@ export function Kiosk({
                       {submitting ? t("send.sending") : t("send.cta")}
                     </Button>
                     <p className="text-caption text-ink-muted text-center" data-numeric>
-                      {t("common.estimate")} · ~{(est.totalCents / 100).toFixed(0)} ·{" "}
+                      {t("common.estimate")} · ~{formatMoney(est.totalCents)} ·{" "}
                       {t("common.aboutMinutes", { n: est.durationMin })}
                     </p>
                   </div>

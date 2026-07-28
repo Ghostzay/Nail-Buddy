@@ -9,6 +9,7 @@ import { PhotoPicker } from "@/components/salon/photo-picker";
 import { ServiceCard } from "@/components/salon/service-card";
 import { SwatchCard } from "@/components/salon/swatch-card";
 import { FirstAvailableCard, TechCard, type Technician } from "@/components/salon/tech-card";
+import { formatPhone } from "@/components/salon/phone-keypad";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useT, type MessageKey } from "@/lib/i18n";
@@ -22,6 +23,7 @@ import type { KioskDraft } from "@/lib/kiosk/flow";
 import { COLOR_FAMILIES, DESIGNS, type ColorFamilyKey } from "@/lib/nail-colors";
 import { LENGTH_SCALE, NAIL_SHAPE_KEYS, type NailLength } from "@/lib/nail-shapes";
 import {
+  SERVICE_BY_ID,
   SERVICE_GROUPS,
   disabledReason,
   servicesInGroup,
@@ -293,25 +295,23 @@ export function ReviewStep({
   const [showAll] = useState(true);
   void showAll;
 
-  const rows: { key: string; label: string; value: string; step: string }[] = [];
-
-  if (draft.services.length) {
-    rows.push({
-      key: "services",
-      label: t("services.question"),
-      value: draft.services.length.toString(),
-      step: "services",
-    });
-  }
-
   return (
     <div className="flex flex-col gap-4">
       <dl className="border-hairline bg-surface-raised flex flex-col divide-y rounded-card border">
-        <Row label={t("register.firstName")} value={`${draft.firstName} ${draft.lastName}`.trim()} />
-        {draft.phone && <Row label={t("register.phone")} value={draft.phone} />}
-        {rows.map((r) => (
-          <Row key={r.key} label={r.label} value={r.value} onEdit={() => onEditStep(r.step)} />
-        ))}
+        <Row label={t("common.name")} value={`${draft.firstName} ${draft.lastName}`.trim()} />
+        {draft.phone && <Row label={t("register.phone")} value={formatPhone(draft.phone)} />}
+        {draft.services.length > 0 && (
+          <Row
+            label={t("services.question")}
+            // The names, not the count — "1" tells the customer nothing about
+            // what they are about to be charged for.
+            value={draft.services
+              .map((id) => SERVICE_BY_ID.get(id)?.label)
+              .filter(Boolean)
+              .join(", ")}
+            onEdit={() => onEditStep("services")}
+          />
+        )}
         <Row
           label={t("shape.question")}
           value={t(`shape.${draft.shape}` as MessageKey)}

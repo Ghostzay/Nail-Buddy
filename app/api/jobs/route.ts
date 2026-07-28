@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { FLAGS } from "@/lib/flags";
 import { createClient } from "@/lib/supabase/server";
+import type { JobStatus } from "@/lib/types";
 
 const SHAPES = ["square", "squoval", "round", "almond", "coffin", "stiletto"];
 const LEGACY_SHAPES = ["square", "round", "almond", "coffin", "stiletto"];
@@ -145,7 +146,7 @@ export async function POST(request: Request) {
     const { count } = await supabase
       .from("jobs")
       .select("id", { count: "exact", head: true })
-      .in("status", FLAGS.jobLifecycle ? ["open", "claimed"] : ["pending", "accepted"]);
+      .in("status", (FLAGS.jobLifecycle ? ["open", "claimed"] : ["pending", "accepted"]) as JobStatus[]);
     queuePosition = count ?? null;
   } catch {
     queuePosition = null;
