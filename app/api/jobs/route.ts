@@ -1,28 +1,25 @@
 import { NextResponse } from "next/server";
 
+import { FLAGS } from "@/lib/flags";
 import { createClient } from "@/lib/supabase/server";
-import {
-  COLOR_FAMILY_OPTIONS,
-  DESIGN_TYPE_OPTIONS,
-  LENGTH_OPTIONS,
-  SHAPE_OPTIONS,
-  type ColorFamily,
-  type DesignType,
-  type Length,
-  type Shape,
-} from "@/lib/types";
 
-const SHAPES = SHAPE_OPTIONS.map((o) => o.value);
-const LENGTHS = LENGTH_OPTIONS.map((o) => o.value);
-const COLOR_FAMILIES = COLOR_FAMILY_OPTIONS.map((o) => o.value);
-const DESIGN_TYPES = DESIGN_TYPE_OPTIONS.map((o) => o.value);
+const SHAPES = ["square", "squoval", "round", "almond", "coffin", "stiletto"];
+const LEGACY_SHAPES = ["square", "round", "almond", "coffin", "stiletto"];
+const LENGTHS = ["short", "medium", "long", "xl"];
+const COLORS = [
+  "nudes", "reds", "pinks", "blacks", "whites", "chrome", "glitter",
+  "blues", "greens", "purples",
+];
+const LEGACY_COLORS = COLORS.slice(0, 7);
+const DESIGNS = ["solid", "french", "ombre", "simple_art", "other"];
+
+function bad(error: string) {
+  return NextResponse.json({ error }, { status: 400 });
+}
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
-
-  if (!body) {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body) return bad("Invalid JSON body");
 
   const {
     customerName,
@@ -33,67 +30,99 @@ export async function POST(request: Request) {
     designType,
     notes,
     photoUrl,
-  } = body as Record<string, unknown>;
+    photoUrls,
+    colorFamilies,
+    services,
+    requestedTechId,
+    smsConsent,
+    sensitivities,
+  } = body;
 
   if (typeof customerName !== "string" || !customerName.trim()) {
-    return NextResponse.json(
-      { error: "customerName is required" },
-      { status: 400 }
-    );
+    return bad("customerName is required");
   }
 
-  if (typeof shape !== "string" || !SHAPES.includes(shape as (typeof SHAPES)[number])) {
-    return NextResponse.json({ error: "Invalid shape" }, { status: 400 });
+  // Validate against whatever the CHECK constraints actually allow right now,
+  // so an invalid value is a clean 400 here rather than a Postgres error at
+  // insert time after the customer already tapped Send.
+  const allowedShapes = FLAGS.jobLifecycle ? SHAPES : LEGACY_SHAPES;
+  const allowedColors = FLAGS.jobLifecycle ? COLORS : LEGACY_COLORS;
+
+  if (typeof shape !== "string" || !allowedShapes.includes(shape)) return bad("Invalid shape");
+  if (typeof length !== "string" || !LENGTHS.includes(length)) return bad("Invalid length");
+  if (typeof colorFamily !== "string" || !allowedColors.includes(colorFamily)) {
+    return bad("Invalid colorFamily");
   }
-  if (typeof length !== "string" || !LENGTHS.includes(length as (typeof LENGTHS)[number])) {
-    return NextResponse.json({ error: "Invalid length" }, { status: 400 });
-  }
-  if (
-    typeof colorFamily !== "string" ||
-    !COLOR_FAMILIES.includes(colorFamily as (typeof COLOR_FAMILIES)[number])
-  ) {
-    return NextResponse.json(
-      { error: "Invalid colorFamily" },
-      { status: 400 }
-    );
-  }
-  if (
-    typeof designType !== "string" ||
-    !DESIGN_TYPES.includes(designType as (typeof DESIGN_TYPES)[number])
-  ) {
-    return NextResponse.json({ error: "Invalid designType" }, { status: 400 });
+  if (typeof designType !== "string" || !DESIGNS.includes(designType)) {
+    return bad("Invalid designType");
   }
 
   const supabase = await createClient();
+  const phone = typeof customerPhone === "string" ? customerPhone.trim() : null;
+  const digits = phone ? phone.replace(/\D/g, "") : null;
 
-  const { data: customer, error: customerError } = await supabase
-    .from("customers")
-    .insert({
+  // ---- customer ----------------------------------------------------------
+  // Before migration 0001, anon has no SELECT on customers, so we cannot look
+  // for an existing row and every request necessarily creates one (bug C2 in
+  // AUDIT.md). Once the flag is on, the unique index plus this upsert collapse
+  // repeat visitors onto a single record.
+  let customerId: string | null = null;
+
+  if (FLAGS.clientIdentity && digits) {
+    const { data: existing } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("phone_normalized", digits)
+      .maybeSingle();
+    customerId = (existing?.id as string) ?? null;
+  }
+
+  if (!customerId) {
+    const insert: Record<string, unknown> = {
       name: customerName.trim(),
-      phone: typeof customerPhone === "string" ? customerPhone.trim() : null,
-    })
-    .select()
-    .single();
+      phone,
+    };
+    if (FLAGS.clientIdentity) {
+      if (typeof smsConsent === "boolean") insert.sms_consent = smsConsent;
+      if (Array.isArray(sensitivities)) insert.sensitivities = sensitivities;
+    }
 
-  if (customerError || !customer) {
-    return NextResponse.json(
-      { error: customerError?.message ?? "Could not create customer" },
-      { status: 500 }
-    );
+    const { data: customer, error } = await supabase
+      .from("customers")
+      .insert(insert as never)
+      .select("id")
+      .single();
+
+    if (error || !customer) {
+      return NextResponse.json(
+        { error: error?.message ?? "Could not create customer" },
+        { status: 500 }
+      );
+    }
+    customerId = customer.id as string;
+  }
+
+  // ---- job ---------------------------------------------------------------
+  const jobInsert: Record<string, unknown> = {
+    customer_id: customerId,
+    shape,
+    length,
+    color_family: colorFamily,
+    design_type: designType,
+    notes: typeof notes === "string" && notes.trim() ? notes.trim() : null,
+    photo_url: typeof photoUrl === "string" ? photoUrl : (Array.isArray(photoUrls) ? photoUrls[0] : null) ?? null,
+  };
+
+  if (FLAGS.jobLifecycle) {
+    if (Array.isArray(photoUrls)) jobInsert.photo_urls = photoUrls;
+    if (Array.isArray(colorFamilies)) jobInsert.color_families = colorFamilies;
+    if (typeof requestedTechId === "string") jobInsert.requested_tech_id = requestedTechId;
   }
 
   const { data: job, error: jobError } = await supabase
     .from("jobs")
-    .insert({
-      customer_id: customer.id,
-      shape: shape as Shape,
-      length: length as Length,
-      color_family: colorFamily as ColorFamily,
-      design_type: designType as DesignType,
-      notes: typeof notes === "string" && notes.trim() ? notes.trim() : null,
-      photo_url: typeof photoUrl === "string" ? photoUrl : null,
-    })
-    .select()
+    .insert(jobInsert as never)
+    .select("id, created_at")
     .single();
 
   if (jobError || !job) {
@@ -103,5 +132,24 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ job, customer }, { status: 201 });
+  // ---- services join (0003) ---------------------------------------------
+  if (FLAGS.servicesAndTechs && Array.isArray(services) && services.length) {
+    await supabase.from("job_services").insert(
+      services.map((id) => ({ job_id: job.id, service_id: id })) as never
+    );
+  }
+
+  // Queue position is best-effort; anon may not be able to count.
+  let queuePosition: number | null = null;
+  try {
+    const { count } = await supabase
+      .from("jobs")
+      .select("id", { count: "exact", head: true })
+      .in("status", FLAGS.jobLifecycle ? ["open", "claimed"] : ["pending", "accepted"]);
+    queuePosition = count ?? null;
+  } catch {
+    queuePosition = null;
+  }
+
+  return NextResponse.json({ job, queuePosition }, { status: 201 });
 }

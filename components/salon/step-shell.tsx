@@ -68,23 +68,28 @@ export function StepShell({
         </motion.div>
       </AnimatePresence>
 
-      {footer}
+      {/* Docked, not scrolled away. The preview and the thumb-zone nav are the
+          two things that must always be reachable, and on a portrait tablet a
+          long service list will otherwise push both off the bottom. */}
+      <div className="bg-surface-base/85 sticky bottom-0 z-10 -mx-4 mt-4 px-4 pb-2 pt-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+        {footer}
 
-      <nav className="mt-4 flex items-center gap-3">
-        {showBack && onBack && (
-          <Button variant="ghost" size="lg" onClick={onBack}>
-            <ArrowLeft className="size-5" />
-            {backLabel ?? t("common.back")}
-          </Button>
-        )}
-        <div className="flex-1" />
-        {onNext && (
-          <Button size="xl" onClick={onNext} disabled={nextDisabled}>
-            {nextLabel ?? t("common.continue")}
-            <ArrowRight className="size-5" />
-          </Button>
-        )}
-      </nav>
+        <nav className="mt-3 flex items-center gap-3">
+          {showBack && onBack && (
+            <Button variant="ghost" size="lg" onClick={onBack}>
+              <ArrowLeft className="size-5" />
+              {backLabel ?? t("common.back")}
+            </Button>
+          )}
+          <div className="flex-1" />
+          {onNext && (
+            <Button size="xl" onClick={onNext} disabled={nextDisabled}>
+              {nextLabel ?? t("common.continue")}
+              <ArrowRight className="size-5" />
+            </Button>
+          )}
+        </nav>
+      </div>
     </div>
   );
 }
